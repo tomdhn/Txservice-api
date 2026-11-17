@@ -1,0 +1,11 @@
+name = "txservice-cors-proxy"
+main = "worker.js"
+compatibility_date = "2026-11-17"
+account_id = "7822b45235a1918a3cffd17e252822df"
+workers_dev = true
+
+[observability]
+enabled = true
+
+[observability.traces]
+enabled = true

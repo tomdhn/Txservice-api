@@ -3,21 +3,33 @@
   "info": {
     "title": "myTransics TX-SERVICE API",
     "version": "1.26.214-30",
-    "description": "API surface of **TX-SERVICE** (`https://www.mytransics.com/service`), the Transics device/company configuration app that the `/service` URL opens after login.\n\n## How this spec was built\n- Logged in with the provided test account (no 2FA or captcha).\n- Captured the live XHR/JSONP traffic of the landing dashboard.\n- Parsed every `endpointId` + `path` request definition in `txservice.min.js` (app version 1.26.214-30) and the identity shell `app.js`.\n- **Write operations were discovered from the frontend only and were not executed** (no create/update/delete/submit except the login the account holder asked for).\n- Personal data (tokens, emails, IMEI/IMSI, plates, APN secrets, user ids) is redacted from examples.\n- Learned operations were kept local. Nothing from this authenticated site was published to the api-anything shared catalog.\n\n## Authentication\n1. `POST /api/login` with `{ username, password }`, `Content-Type: text/plain`, cookies (`withCredentials`).\n2. Browser follows `/service/login/{token}`, which sets an HttpOnly cookie `token` (path `/service`) plus a `session` cookie.\n3. `GET /service/environment.js` (cookie-authenticated) returns `user.token`. That value is the API bearer for SKYCC / DWH / AWS sync / myTransics v2.\n4. **GET (JSONP):** `{base}{path}?callback=_jqjsp&token={user.token}&params={json}` where `params` is the request object (fields, constraints, filters, sort, search, query, `_id`).\n5. **POST:** `POST {base}{path}` with `Content-Type: text/plain`, body `JSON.stringify({ ...request, token })`, `withCredentials: true`.\n6. A JSON response with `code: 401` sends the UI back to login.\n\nThe `params` / body `token` is **not** the same string as the `/service` cookie in all cases; use `user.token` from `environment.js`.\n\n## Servers (from environment.js `requestHandler.endpoints`)\n- `skycc` — https://ww4sb.tx-connect.com/SKYCC/api/v1/ (main app API)\n- `mytransics` / `txmytransics` — https://www.mytransics.com/api/v2/\n- `dwh` — https://dwhrestapi.transics.com/api/v1/\n- `awssync` — https://www.mytransics.com/awssync/v1/\n- Identity portal — https://www.mytransics.com/api/\n\n## Tested live\nIdentity: `GET /api/statuscheck`, `POST /api/login`, `GET /config.json`, `GET /languages/resources_en.json`, `GET /service/login/{token}`, `GET /service/environment.js`.\n\nSKYCC reads on the default dashboard: `/customers`, `/customers/genericsettings`, `/customers/profilesettings`, `/devices`, `/diagnostic/info`, `/devices/sensors/GetAll`, `/remoteupdate`, `/devices/settings`.\n\nAll other operations are documented from the frontend and marked as not tested.\n",
+    "description": "API surface of **TX-SERVICE** (`https://www.mytransics.com/service`), the Transics device/company configuration app that the `/service` URL opens after login.\n\n## How this spec was built\n- Logged in with the provided test account (no 2FA or captcha).\n- Captured the live XHR/JSONP traffic of the landing dashboard.\n- Parsed every `endpointId` + `path` request definition in `txservice.min.js` (app version 1.26.214-30) and the identity shell `app.js`.\n- **Write operations were discovered from the frontend only and were not executed** (no create/update/delete/submit except the login the account holder asked for).\n- Personal data (tokens, emails, IMEI/IMSI, plates, APN secrets, user ids) is redacted from examples.\n- Learned operations were kept local. Nothing from this authenticated site was published to the api-anything shared catalog.\n\n## Authentication\n1. `POST /api/login` with `{ username, password }`, `Content-Type: text/plain`, cookies (`withCredentials`).\n2. Browser follows `/service/login/{token}`, which sets an HttpOnly cookie `token` (path `/service`) plus a `session` cookie.\n3. `GET /service/environment.js` (cookie-authenticated) returns `user.token`. That value is the API bearer for SKYCC / DWH / AWS sync / myTransics v2.\n4. **GET (JSONP):** `{base}{path}?callback=_jqjsp&token={user.token}&params={json}` where `params` is the request object (fields, constraints, filters, sort, search, query, `_id`).\n5. **POST:** `POST {base}{path}` with `Content-Type: text/plain`, body `JSON.stringify({ ...request, token })`, `withCredentials: true`.\n6. A JSON response with `code: 401` sends the UI back to login.\n\nThe `params` / body `token` is **not** the same string as the `/service` cookie in all cases; use `user.token` from `environment.js`.\n\n## Servers (from environment.js `requestHandler.endpoints`)\n- `skycc` — https://ww4sb.tx-connect.com/SKYCC/api/v1/ (main app API)\n- `mytransics` / `txmytransics` — https://www.mytransics.com/api/v2/\n- `dwh` — https://dwhrestapi.transics.com/api/v1/\n- `awssync` — https://www.mytransics.com/awssync/v1/\n- Identity portal — https://www.mytransics.com/api/\n\n## CORS proxy\nBrowser calls (Swagger Try it out) should use the Cloudflare Worker servers listed first: `https://txservice-cors-proxy.dhoine-tom.workers.dev/<upstream-host>/...` (for example `https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com`). The worker allowlists only the TX-SERVICE hosts (`ww4sb.tx-connect.com`, `www.mytransics.com`, `dwhrestapi.transics.com`) and adds CORS headers, including for a locally opened `file://` page.\n\nBrowsers will not send myTransics cookies to the worker. For cookie-authenticated calls, put the upstream cookie string in the `X-Proxy-Cookie` request header; the worker forwards it as `Cookie`. Upstream `Set-Cookie` is returned as `X-Proxy-Set-Cookie`. SKYCC, DWH, AWS sync, and myTransics v2 calls still need `user.token` from `/service/environment.js` in the `token` query or body field. The proxy does not log in for you.\n\n## Tested live\nIdentity: `GET /api/statuscheck`, `POST /api/login`, `GET /config.json`, `GET /languages/resources_en.json`, `GET /service/login/{token}`, `GET /service/environment.js`.\n\nSKYCC reads on the default dashboard: `/customers`, `/customers/genericsettings`, `/customers/profilesettings`, `/devices`, `/diagnostic/info`, `/devices/sensors/GetAll`, `/remoteupdate`, `/devices/settings`.\n\nAll other operations are documented from the frontend and marked as not tested.\n",
     "x-tested-note": "See each operation's x-tested and x-write-executed flags."
   },
   "servers": [
     {
+      "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+      "description": "CORS proxy → SKYCC (ww4sb.tx-connect.com). Send session cookies as X-Proxy-Cookie; upstream Set-Cookie is returned as X-Proxy-Set-Cookie. SKYCC calls still need user.token from /service/environment.js."
+    },
+    {
+      "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+      "description": "CORS proxy → myTransics site (www.mytransics.com). Send session cookies as X-Proxy-Cookie; upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+    },
+    {
+      "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/dwhrestapi.transics.com",
+      "description": "CORS proxy → data warehouse (dwhrestapi.transics.com). Send session cookies as X-Proxy-Cookie; upstream Set-Cookie is returned as X-Proxy-Set-Cookie. Calls still need user.token from /service/environment.js."
+    },
+    {
       "url": "https://ww4sb.tx-connect.com",
-      "description": "SKYCC — main TX-SERVICE data API (JSONP GET, POST JSON as text/plain)"
+      "description": "SKYCC — main TX-SERVICE data API (JSONP GET, POST JSON as text/plain). Direct origin; browser CORS will block Try it out."
     },
     {
       "url": "https://www.mytransics.com",
-      "description": "myTransics site (config, environment, login bounce, language files)"
+      "description": "myTransics site (config, environment, login bounce, language files). Direct origin; browser CORS will block Try it out."
     },
     {
       "url": "https://dwhrestapi.transics.com",
-      "description": "Data warehouse REST API"
+      "description": "Data warehouse REST API. Direct origin; browser CORS will block Try it out."
     }
   ],
   "tags": [
@@ -482,7 +494,12 @@
     "/SKYCC/api/v1/DeviceLogs/GetLogGroupFeatures": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -717,7 +734,12 @@
     "/SKYCC/api/v1/DeviceLogs/GetLogGroups": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -947,7 +969,12 @@
     "/SKYCC/api/v1/DeviceLogs/countlogs": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -1194,7 +1221,12 @@
     "/SKYCC/api/v1/DeviceLogs/logs": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -1462,7 +1494,12 @@
     "/SKYCC/api/v1/DeviceLogs/ulsloglevels": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -1687,7 +1724,12 @@
     "/SKYCC/api/v1/DeviceLogs/ulslogprofilesettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -1924,7 +1966,12 @@
     "/SKYCC/api/v1/DocscanHealth/getdocscanhealthdownload": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -2154,7 +2201,12 @@
     "/SKYCC/api/v1/DocscanHealth/getdocscanhealthinfo": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -2406,7 +2458,12 @@
     "/SKYCC/api/v1/FileRequest/getobcfile": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -2629,7 +2686,12 @@
     "/SKYCC/api/v1/FileRequest/history": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -2881,7 +2943,12 @@
     "/SKYCC/api/v1/MessageViewer/getmessages": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -3149,7 +3216,12 @@
     "/SKYCC/api/v1/MessageViewer/otadevicedatatypes": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -3376,7 +3448,12 @@
     "/SKYCC/api/v1/Packages": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -3620,7 +3697,12 @@
     "/SKYCC/api/v1/Packages/DeviceTypePackagehistory": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -3858,7 +3940,12 @@
     "/SKYCC/api/v1/Rdd/GetCardReaderInformation": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -4100,7 +4187,12 @@
     "/SKYCC/api/v1/Rdd/GetCardReaderSessions": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -4362,7 +4454,12 @@
     "/SKYCC/api/v1/Rdd/GetCardReaderStatus": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -4598,7 +4695,12 @@
     "/SKYCC/api/v1/Rdd/GetRddAdditionalInformation": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -4844,7 +4946,12 @@
     "/SKYCC/api/v1/Rdd/GetRddInfomation": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -5091,7 +5198,12 @@
     "/SKYCC/api/v1/Rdd/GetRddReadOutInformation": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -5325,7 +5437,12 @@
     "/SKYCC/api/v1/Rdd/GetRddSchedulerInformation": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -5568,7 +5685,12 @@
     "/SKYCC/api/v1/Rdd/GetTachoCardsOfCustomer": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -5814,7 +5936,12 @@
     "/SKYCC/api/v1/Rdd/Getmessages": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -6062,7 +6189,12 @@
     "/SKYCC/api/v1/Rdd/getrdddownload": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -6293,7 +6425,12 @@
     "/SKYCC/api/v1/RemoteMapVersion/remoteUpdateMapDataVersioninformation": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -6526,7 +6663,12 @@
     "/SKYCC/api/v1/RemoteUpdateMapData": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -6779,7 +6921,12 @@
     "/SKYCC/api/v1/RemoteUpdateMapData/getRemoteUpdateMapDataVersionInformation": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -7017,7 +7164,12 @@
     "/SKYCC/api/v1/RemoteUpdateMapData/remoteUpdatemapDatahistory": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -7274,7 +7426,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/GetAllIntegrators": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -7538,7 +7695,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/GetCustomersByIntegrators": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -7772,7 +7934,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/GetIWSSensorsList": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -7999,7 +8166,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/integratorfunc": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -8249,7 +8421,12 @@
     "/SKYCC/api/v1/WiFi/history": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -8487,7 +8664,12 @@
     "/SKYCC/api/v1/activities/customeractiongroups": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -8725,7 +8907,12 @@
     "/SKYCC/api/v1/activities/deviceactiongrouphistory": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -8981,7 +9168,12 @@
     "/SKYCC/api/v1/activities/deviceactiongroupsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -9216,7 +9408,12 @@
     "/SKYCC/api/v1/adminclientws/adminclientwsinfo": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -9525,7 +9722,12 @@
     "/SKYCC/api/v1/adminclientws/adminsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -9765,7 +9967,12 @@
     "/SKYCC/api/v1/adminclientws/getCommunicationHistory": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -10011,7 +10218,12 @@
     "/SKYCC/api/v1/calibrations/trailer": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -10257,7 +10469,12 @@
     "/SKYCC/api/v1/calibrations/trailers": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -10515,7 +10732,12 @@
     "/SKYCC/api/v1/calibrations/vehicle": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -10769,7 +10991,12 @@
     "/SKYCC/api/v1/calibrations/vehicles": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -11029,7 +11256,12 @@
     "/SKYCC/api/v1/countries": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -11259,7 +11491,12 @@
     "/SKYCC/api/v1/customers": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -11508,7 +11745,12 @@
     "/SKYCC/api/v1/customers/adminuser": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -11754,7 +11996,12 @@
     "/SKYCC/api/v1/customers/connectionstrings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -11980,7 +12227,12 @@
     "/SKYCC/api/v1/customers/customerinfo": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -12210,7 +12462,12 @@
     "/SKYCC/api/v1/customers/customersettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -12484,7 +12741,12 @@
     "/SKYCC/api/v1/customers/genericsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -12717,7 +12979,12 @@
     "/SKYCC/api/v1/customers/generictypes": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -12953,7 +13220,12 @@
     "/SKYCC/api/v1/customers/getProfileHistory": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -13203,7 +13475,12 @@
     "/SKYCC/api/v1/customers/getactivedeactivegenericsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -13438,7 +13715,12 @@
     "/SKYCC/api/v1/customers/getallexportdefinitions": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -13665,7 +13947,12 @@
     "/SKYCC/api/v1/customers/getallimportdefinitions": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -13892,7 +14179,12 @@
     "/SKYCC/api/v1/customers/getcustomeraccessoriesgenericsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -14126,7 +14418,12 @@
     "/SKYCC/api/v1/customers/getcustomerexportdefinitions": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -14356,7 +14653,12 @@
     "/SKYCC/api/v1/customers/getcustomerfeaturesettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -14592,7 +14894,12 @@
     "/SKYCC/api/v1/customers/getcustomergenericsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -14937,7 +15244,12 @@
     "/SKYCC/api/v1/customers/getcustomerimportdefinitions": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -15167,7 +15479,12 @@
     "/SKYCC/api/v1/customers/getcustomernextstopFeaturesettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -15403,7 +15720,12 @@
     "/SKYCC/api/v1/customers/getcustomernextstopgenericsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -15645,7 +15967,12 @@
     "/SKYCC/api/v1/customers/getcustomertxfeaturesettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -15881,7 +16208,12 @@
     "/SKYCC/api/v1/customers/getgenericsettinglogs": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -16133,7 +16465,12 @@
     "/SKYCC/api/v1/customers/getgenericsettingsconfig": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -16367,7 +16704,12 @@
     "/SKYCC/api/v1/customers/newgenerictypes": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -16597,7 +16939,12 @@
     "/SKYCC/api/v1/customers/profilesettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -17066,7 +17413,12 @@
     "/SKYCC/api/v1/customers/txconnectinfo": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -17314,7 +17666,12 @@
     "/SKYCC/api/v1/devices": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -17603,7 +17960,12 @@
     "/SKYCC/api/v1/devices/GetDeviceGsmDetails": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -17839,7 +18201,12 @@
     "/SKYCC/api/v1/devices/configurations": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -18533,7 +18900,12 @@
     "/SKYCC/api/v1/devices/devicerelation": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -18778,7 +19150,12 @@
     "/SKYCC/api/v1/devices/devicesearch": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -19024,7 +19401,12 @@
     "/SKYCC/api/v1/devices/diagnostichistory": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -19256,7 +19638,12 @@
     "/SKYCC/api/v1/devices/diagnosticinfobyId": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -19489,7 +19876,12 @@
     "/SKYCC/api/v1/devices/diagnostics": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -19728,7 +20120,12 @@
     "/SKYCC/api/v1/devices/externalcardreadersettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -19954,7 +20351,12 @@
     "/SKYCC/api/v1/devices/getresetskydevicelogs": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -20192,7 +20594,12 @@
     "/SKYCC/api/v1/devices/logfeatures": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -20421,7 +20828,12 @@
     "/SKYCC/api/v1/devices/logs/flexSoloLogFileCount": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -20664,7 +21076,12 @@
     "/SKYCC/api/v1/devices/logs/settings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -20903,7 +21320,12 @@
     "/SKYCC/api/v1/devices/resetgodevice": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -21143,7 +21565,12 @@
     "/SKYCC/api/v1/devices/retriveSOTADestination": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -21390,7 +21817,12 @@
     "/SKYCC/api/v1/devices/sensoractualsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -21633,7 +22065,12 @@
     "/SKYCC/api/v1/devices/sensors/GetAll": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -21919,7 +22356,12 @@
     "/SKYCC/api/v1/devices/sensors/history": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -22171,7 +22613,12 @@
     "/SKYCC/api/v1/devices/sensorsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -22418,7 +22865,12 @@
     "/SKYCC/api/v1/devices/settings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -22953,7 +23405,12 @@
     "/SKYCC/api/v1/devices/settings/speedsource": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -23220,7 +23677,12 @@
     "/SKYCC/api/v1/devices/settings/speedsource/history": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -23498,7 +23960,12 @@
     "/SKYCC/api/v1/diagnostic/info": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -23790,7 +24257,12 @@
     "/SKYCC/api/v1/diagnostic/multipledeviceconnectionstate": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -24027,7 +24499,12 @@
     "/SKYCC/api/v1/drivers/getforgottendriver": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -24273,7 +24750,12 @@
     "/SKYCC/api/v1/drivers/keyboards": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -24498,7 +24980,12 @@
     "/SKYCC/api/v1/drivers/mapthemes": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -24723,7 +25210,12 @@
     "/SKYCC/api/v1/drivers/mapviews": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -24949,7 +25441,12 @@
     "/SKYCC/api/v1/drivers/settings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -25217,7 +25714,12 @@
     "/SKYCC/api/v1/drivers/speedwarnings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -25442,7 +25944,12 @@
     "/SKYCC/api/v1/drivers/themes": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -25667,7 +26174,12 @@
     "/SKYCC/api/v1/environment/sensors": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -25904,7 +26416,12 @@
     "/SKYCC/api/v1/environment/sensors/available": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -26135,7 +26652,12 @@
     "/SKYCC/api/v1/instructionset": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -26384,7 +26906,12 @@
     "/SKYCC/api/v1/instructionset/history": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -26625,7 +27152,12 @@
     "/SKYCC/api/v1/instructionset/versions": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -26866,7 +27398,12 @@
     "/SKYCC/api/v1/languages": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -27095,7 +27632,12 @@
     "/SKYCC/api/v1/map/mapsets": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -27320,7 +27862,12 @@
     "/SKYCC/api/v1/remotediagnostics/remotediagnostichistory": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -27556,7 +28103,12 @@
     "/SKYCC/api/v1/remoteupdate": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -27834,7 +28386,12 @@
     "/SKYCC/api/v1/remoteupdate/getdeviceewtrpackages": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -28073,7 +28630,12 @@
     "/SKYCC/api/v1/remoteupdate/getdevicesewtrpackages": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -28318,7 +28880,12 @@
     "/SKYCC/api/v1/remoteupdate/getewtrpackages": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -28559,7 +29126,12 @@
     "/SKYCC/api/v1/remoteupdate/history": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -28812,7 +29384,12 @@
     "/SKYCC/api/v1/sensors/GetSensorKeys": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -29037,7 +29614,12 @@
     "/SKYCC/api/v1/sensors/GetSensorsHistory": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -29298,7 +29880,12 @@
     "/SKYCC/api/v1/squarrel": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -29545,7 +30132,12 @@
     "/SKYCC/api/v1/squarrel/history": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -29779,7 +30371,12 @@
     "/SKYCC/api/v1/squarrel/versions": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -30012,7 +30609,12 @@
     "/SKYCC/api/v1/tcis": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -30256,7 +30858,12 @@
     "/SKYCC/api/v1/users/getcurrentuserdetails": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -30484,7 +31091,12 @@
     "/SKYCC/api/v1/vehicles/getalltypevehicles": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -30719,7 +31331,12 @@
     "/SKYCC/api/v1/vehicles/truckrelation": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -30964,7 +31581,12 @@
     "/SKYCC/api/v1/wifi/GetWiFiPassword": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -31198,7 +31820,12 @@
     "/SKYCC/api/v1/wifi/wifinetworks": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -31429,7 +32056,12 @@
     "/SKYCC/api/v1/DeviceLogs/AddUlsGroup": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -31557,7 +32189,12 @@
     "/SKYCC/api/v1/DeviceLogs/AddUlsLogFeature": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -31685,7 +32322,12 @@
     "/SKYCC/api/v1/DeviceLogs/AssignUlslogfeature": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -31813,7 +32455,12 @@
     "/SKYCC/api/v1/DeviceLogs/DeleteUlsGroup": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -31953,7 +32600,12 @@
     "/SKYCC/api/v1/DeviceLogs/DeleteUlslogfeature": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -32093,7 +32745,12 @@
     "/SKYCC/api/v1/DeviceLogs/UnAssignUlsLogGroupFeature": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -32221,7 +32878,12 @@
     "/SKYCC/api/v1/FileRequest/sendrequest": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -32349,7 +33011,12 @@
     "/SKYCC/api/v1/PackageAdmin/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -32504,7 +33171,12 @@
     "/SKYCC/api/v1/Packages/updatePackagefiles": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -32644,7 +33316,12 @@
     "/SKYCC/api/v1/Rdd/CancelCardReaderStatus": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -32784,7 +33461,12 @@
     "/SKYCC/api/v1/Rdd/DeleteTachoCardReader": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -32924,7 +33606,12 @@
     "/SKYCC/api/v1/Rdd/rddcancelsession": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -33064,7 +33751,12 @@
     "/SKYCC/api/v1/RemoteMapVersion/deletetRemoteUpdateMapDataVersion": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -33204,7 +33896,12 @@
     "/SKYCC/api/v1/RemoteMapVersion/postRemoteUpdateMapDataVersion": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -33332,7 +34029,12 @@
     "/SKYCC/api/v1/RemoteMapVersion/remoteupdateMapData": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -33472,7 +34174,12 @@
     "/SKYCC/api/v1/RemoteUpdateMapData/postRemoteUpdateMapData": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -33600,7 +34307,12 @@
     "/SKYCC/api/v1/RemoteUpdateMapData/postRemoteUpdateMapDataAbort": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -33728,7 +34440,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/assignuseritemstodispatcher": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -33876,7 +34593,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/edittxtangolink": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -34004,7 +34726,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/newtxtangolink": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -34132,7 +34859,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/resetintegratorfuncsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -34272,7 +35004,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/setintegratorprofile": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -34412,7 +35149,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/setiwsrequestlimitations": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -34562,7 +35304,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/updateintegratorfunc": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -34718,7 +35465,12 @@
     "/SKYCC/api/v1/TxTangoIntegrator/updatepassword": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -34846,7 +35598,12 @@
     "/SKYCC/api/v1/activities/settings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -34974,7 +35731,12 @@
     "/SKYCC/api/v1/adminclientws/createadminsupportedmobiledevicesetting": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -35103,7 +35865,12 @@
     "/SKYCC/api/v1/adminclientws/createappversion": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -35231,7 +35998,12 @@
     "/SKYCC/api/v1/adminclientws/createpushkey": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -35359,7 +36131,12 @@
     "/SKYCC/api/v1/adminclientws/createtxconnecturl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -35487,7 +36264,12 @@
     "/SKYCC/api/v1/adminclientws/createtxconnectversion": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -35615,7 +36397,12 @@
     "/SKYCC/api/v1/adminclientws/createtxdashboardirwsurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -35743,7 +36530,12 @@
     "/SKYCC/api/v1/adminclientws/createtxdashboardiwsurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -35871,7 +36663,12 @@
     "/SKYCC/api/v1/adminclientws/createtxdashboardswsurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -35999,7 +36796,12 @@
     "/SKYCC/api/v1/adminclientws/createtxreporturl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -36127,7 +36929,12 @@
     "/SKYCC/api/v1/adminclientws/createtxservicecommunicationurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -36255,7 +37062,12 @@
     "/SKYCC/api/v1/adminclientws/createtxsocialmode": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -36383,7 +37195,12 @@
     "/SKYCC/api/v1/adminclientws/createtxsocialurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -36511,7 +37328,12 @@
     "/SKYCC/api/v1/adminclientws/deleteadminsupportedmobiledevicesetting": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -36660,7 +37482,12 @@
     "/SKYCC/api/v1/adminclientws/deleteappversion": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -36824,7 +37651,12 @@
     "/SKYCC/api/v1/adminclientws/deletepushkey": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -36964,7 +37796,12 @@
     "/SKYCC/api/v1/adminclientws/deletetxconnecturl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -37104,7 +37941,12 @@
     "/SKYCC/api/v1/adminclientws/deletetxconnectversion": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -37244,7 +38086,12 @@
     "/SKYCC/api/v1/adminclientws/deletetxdashboardirwsurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -37384,7 +38231,12 @@
     "/SKYCC/api/v1/adminclientws/deletetxdashboardiwsurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -37524,7 +38376,12 @@
     "/SKYCC/api/v1/adminclientws/deletetxdashboardswsurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -37664,7 +38521,12 @@
     "/SKYCC/api/v1/adminclientws/deletetxreporturl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -37804,7 +38666,12 @@
     "/SKYCC/api/v1/adminclientws/deletetxservicecommunicationurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -37944,7 +38811,12 @@
     "/SKYCC/api/v1/adminclientws/deletetxsocialmode": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -38084,7 +38956,12 @@
     "/SKYCC/api/v1/adminclientws/deletetxsocialurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -38224,7 +39101,12 @@
     "/SKYCC/api/v1/adminclientws/resetpushconfigurationsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -38364,7 +39246,12 @@
     "/SKYCC/api/v1/adminclientws/resettxconnectsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -38504,7 +39391,12 @@
     "/SKYCC/api/v1/adminclientws/resettxdashboardsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -38644,7 +39536,12 @@
     "/SKYCC/api/v1/adminclientws/resettxreportssettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -38784,7 +39681,12 @@
     "/SKYCC/api/v1/adminclientws/resettxsocialsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -38924,7 +39826,12 @@
     "/SKYCC/api/v1/adminclientws/updateadminsupportedmobiledevicesetting": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -39053,7 +39960,12 @@
     "/SKYCC/api/v1/adminclientws/updateappversion": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -39193,7 +40105,12 @@
     "/SKYCC/api/v1/adminclientws/updatepushkey": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -39349,7 +40266,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxconnecturl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -39477,7 +40399,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxconnectversion": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -39605,7 +40532,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxdashboardirwsurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -39733,7 +40665,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxdashboardiwsurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -39861,7 +40798,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxdashboardsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -39989,7 +40931,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxdashboardswsurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -40117,7 +41064,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxreporturl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -40245,7 +41197,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxservicecommunicationurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -40373,7 +41330,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxsocialmode": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -40501,7 +41463,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxsocialsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -40643,7 +41610,12 @@
     "/SKYCC/api/v1/adminclientws/updatetxsocialurl": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -40771,7 +41743,12 @@
     "/SKYCC/api/v1/calibrations/trailer/create": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -40899,7 +41876,12 @@
     "/SKYCC/api/v1/calibrations/trailer/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -41027,7 +42009,12 @@
     "/SKYCC/api/v1/calibrations/vehicle/create": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -41155,7 +42142,12 @@
     "/SKYCC/api/v1/calibrations/vehicle/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -41283,7 +42275,12 @@
     "/SKYCC/api/v1/customers/accessoriesgenericsettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -41435,7 +42432,12 @@
     "/SKYCC/api/v1/customers/addcustomerexportdefinition": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -41585,7 +42587,12 @@
     "/SKYCC/api/v1/customers/addcustomerimportdefinition": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -41725,7 +42732,12 @@
     "/SKYCC/api/v1/customers/adminuser/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -41878,7 +42890,12 @@
     "/SKYCC/api/v1/customers/connectionstrings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -42006,7 +43023,12 @@
     "/SKYCC/api/v1/customers/create": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -42134,7 +43156,12 @@
     "/SKYCC/api/v1/customers/customertypesettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -42262,7 +43289,12 @@
     "/SKYCC/api/v1/customers/genericcustomerssettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -42390,7 +43422,12 @@
     "/SKYCC/api/v1/customers/genericfeaturesettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -42698,7 +43735,12 @@
     "/SKYCC/api/v1/customers/genericsettings/create": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -42826,7 +43868,12 @@
     "/SKYCC/api/v1/customers/genericsettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -42954,7 +44001,12 @@
     "/SKYCC/api/v1/customers/genericsettingsconfig/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -43102,7 +44154,12 @@
     "/SKYCC/api/v1/customers/linkdefectdevicebyimei": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -43230,7 +44287,12 @@
     "/SKYCC/api/v1/customers/linkdevicebyimei": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -43358,7 +44420,12 @@
     "/SKYCC/api/v1/customers/nextstopcustomerssettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -43486,7 +44553,12 @@
     "/SKYCC/api/v1/customers/nextstopgenericsettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -43646,7 +44718,12 @@
     "/SKYCC/api/v1/customers/profilesettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -43774,7 +44851,12 @@
     "/SKYCC/api/v1/customers/txconnectinfo/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -43927,7 +45009,12 @@
     "/SKYCC/api/v1/customers/txinfocustomerssettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -44055,7 +45142,12 @@
     "/SKYCC/api/v1/customers/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -44196,7 +45288,12 @@
     "/SKYCC/api/v1/customers/updatecustomersettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -44382,7 +45479,12 @@
     "/SKYCC/api/v1/devices/PostEnableDiagnostics": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -44511,7 +45613,12 @@
     "/SKYCC/api/v1/devices/PostEnableDiagnosticsMultiple": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -44644,7 +45751,12 @@
     "/SKYCC/api/v1/devices/ULSlogs/settings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -44772,7 +45884,12 @@
     "/SKYCC/api/v1/devices/logs/requestlogs": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -44901,7 +46018,12 @@
     "/SKYCC/api/v1/devices/logs/settings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -45029,7 +46151,12 @@
     "/SKYCC/api/v1/devices/resendsettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -45180,7 +46307,12 @@
     "/SKYCC/api/v1/devices/resendwifisettings": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -45320,7 +46452,12 @@
     "/SKYCC/api/v1/devices/resetskydevice": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -45449,7 +46586,12 @@
     "/SKYCC/api/v1/devices/sendsms": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -45599,7 +46741,12 @@
     "/SKYCC/api/v1/devices/sensorsettings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -45727,7 +46874,12 @@
     "/SKYCC/api/v1/devices/setSOTADestinations": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -45877,7 +47029,12 @@
     "/SKYCC/api/v1/devices/settings/speedsource/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -46005,7 +47162,12 @@
     "/SKYCC/api/v1/devices/settings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -46186,7 +47348,12 @@
     "/SKYCC/api/v1/devices/swap": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -46315,7 +47482,12 @@
     "/SKYCC/api/v1/diagnostic/sendlinenumeration": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -46443,7 +47615,12 @@
     "/SKYCC/api/v1/drivers/ForgetDriver": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -46583,7 +47760,12 @@
     "/SKYCC/api/v1/drivers/settings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -46711,7 +47893,12 @@
     "/SKYCC/api/v1/environment/sensors/delete": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -46859,7 +48046,12 @@
     "/SKYCC/api/v1/environment/sensors/importprofiles": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -46987,7 +48179,12 @@
     "/SKYCC/api/v1/environment/sensors/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -47116,7 +48313,12 @@
     "/SKYCC/api/v1/instructionset/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -47244,7 +48446,12 @@
     "/SKYCC/api/v1/packages/uploadupdatefiles": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -47386,7 +48593,12 @@
     "/SKYCC/api/v1/remoteupdate/abort": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -47514,7 +48726,12 @@
     "/SKYCC/api/v1/remoteupdate/abortewtrupdate": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -47654,7 +48871,12 @@
     "/SKYCC/api/v1/remoteupdate/sendewtrupdate": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -47782,7 +49004,12 @@
     "/SKYCC/api/v1/remoteupdate/settings/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -47910,7 +49137,12 @@
     "/SKYCC/api/v1/remoteupdate/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -48038,7 +49270,12 @@
     "/SKYCC/api/v1/squarrel/reset": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -48166,7 +49403,12 @@
     "/SKYCC/api/v1/squarrel/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -48294,7 +49536,12 @@
     "/SKYCC/api/v1/tcis/create": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -48422,7 +49669,12 @@
     "/SKYCC/api/v1/tcis/generatecode": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -48550,7 +49802,12 @@
     "/SKYCC/api/v1/tcis/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -48690,7 +49947,12 @@
     "/SKYCC/api/v1/txtangointegrator/create": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -48818,7 +50080,12 @@
     "/SKYCC/api/v1/txtangointegrator/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -48946,7 +50213,12 @@
     "/SKYCC/api/v1/wifi/create": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -49074,7 +50346,12 @@
     "/SKYCC/api/v1/wifi/delete": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -49214,7 +50491,12 @@
     "/SKYCC/api/v1/wifi/update": {
       "servers": [
         {
-          "url": "https://ww4sb.tx-connect.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/ww4sb.tx-connect.com",
+          "description": "CORS proxy → SKYCC. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://ww4sb.tx-connect.com",
+          "description": "Direct SKYCC origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -49342,7 +50624,12 @@
     "/api/v2/companies": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -49570,7 +50857,12 @@
     "/api/v1/blacksubstances": {
       "servers": [
         {
-          "url": "https://dwhrestapi.transics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/dwhrestapi.transics.com",
+          "description": "CORS proxy → data warehouse API. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://dwhrestapi.transics.com",
+          "description": "Direct DWH origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -49800,7 +51092,12 @@
     "/api/v1/businessrelations": {
       "servers": [
         {
-          "url": "https://dwhrestapi.transics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/dwhrestapi.transics.com",
+          "description": "CORS proxy → data warehouse API. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://dwhrestapi.transics.com",
+          "description": "Direct DWH origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -50034,7 +51331,12 @@
     "/api/v1/devices/inventory": {
       "servers": [
         {
-          "url": "https://dwhrestapi.transics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/dwhrestapi.transics.com",
+          "description": "CORS proxy → data warehouse API. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://dwhrestapi.transics.com",
+          "description": "Direct DWH origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -50268,7 +51570,12 @@
     "/api/v1/productdownloads/docsandtoolsgrouped": {
       "servers": [
         {
-          "url": "https://dwhrestapi.transics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/dwhrestapi.transics.com",
+          "description": "CORS proxy → data warehouse API. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://dwhrestapi.transics.com",
+          "description": "Direct DWH origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -50524,7 +51831,12 @@
     "/awssync/v1/admin/packages": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -50755,7 +52067,12 @@
     "/awssync/v1/devices/settings": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -50988,7 +52305,12 @@
     "/awssync/v1/devices/settings/history": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -51212,7 +52534,12 @@
     "/awssync/v1/admin/package/update": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -51340,7 +52667,12 @@
     "/awssync/v1/devices/activate": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -51468,7 +52800,12 @@
     "/awssync/v1/devices/packages/update": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -51596,7 +52933,12 @@
     "/awssync/v1/devices/settings/update": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -51725,7 +53067,12 @@
     "/api/statuscheck": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -51780,7 +53127,12 @@
     "/api/passwordRulesdetails": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -51836,7 +53188,12 @@
     "/api/twostepqr": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -51892,7 +53249,12 @@
     "/api/updatetotp": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -51948,7 +53310,12 @@
     "/api/mytransics/logout": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52004,7 +53371,12 @@
     "/api/mytransics/userdata": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52068,7 +53440,12 @@
     "/api/mytransics/profiledata": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52132,7 +53509,12 @@
     "/api/mytransics/impersonate": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52204,7 +53586,12 @@
     "/api/token/revoke": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52260,7 +53647,12 @@
     "/api/notifications": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52316,7 +53708,12 @@
     "/api/subscriptioninfo": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52372,7 +53769,12 @@
     "/config.json": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52405,7 +53807,12 @@
     "/service/environment.js": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52447,7 +53854,12 @@
     "/service/login/{token}": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
@@ -52492,7 +53904,12 @@
     "/api/login": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -52545,7 +53962,12 @@
     "/api/twostep": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -52600,7 +54022,12 @@
     "/api/reqpasswordreset": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -52655,7 +54082,12 @@
     "/api/reqtwostepreset": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -52710,7 +54142,12 @@
     "/api/twostepreset": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -52765,7 +54202,12 @@
     "/api/twostepsetup": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -52820,7 +54262,12 @@
     "/api/passwordupdate": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -52875,7 +54322,12 @@
     "/api/v2/users/password/update": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -52930,7 +54382,12 @@
     "/api/v3/users/password/update": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -52985,7 +54442,12 @@
     "/api/startsociallink": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53040,7 +54502,12 @@
     "/api/linkcode": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53095,7 +54562,12 @@
     "/api/singleuse": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53150,7 +54622,12 @@
     "/api/singleusecode": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53205,7 +54682,12 @@
     "/api/usertile": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53260,7 +54742,12 @@
     "/api/userlayout": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53315,7 +54802,12 @@
     "/api/userhook/link": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53370,7 +54862,12 @@
     "/api/v2/users/update": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53425,7 +54922,12 @@
     "/api/dismissnotifications": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53480,7 +54982,12 @@
     "/api/setsettings": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53535,7 +55042,12 @@
     "/api/settrackinginfo": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "post": {
@@ -53590,7 +55102,12 @@
     "/languages/{resourceFile}": {
       "servers": [
         {
-          "url": "https://www.mytransics.com"
+          "url": "https://txservice-cors-proxy.dhoine-tom.workers.dev/www.mytransics.com",
+          "description": "CORS proxy → myTransics site. Send session cookies as X-Proxy-Cookie (the worker forwards them as Cookie). Upstream Set-Cookie is returned as X-Proxy-Set-Cookie."
+        },
+        {
+          "url": "https://www.mytransics.com",
+          "description": "Direct myTransics origin (browser CORS will block Try it out)."
         }
       ],
       "get": {
